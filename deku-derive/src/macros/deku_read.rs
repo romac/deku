@@ -27,7 +27,7 @@ fn emit_struct(input: &DekuData) -> Result<TokenStream, syn::Error> {
         .generics
         .lifetimes()
         .next()
-        .map_or(quote!('_), |v| quote!(#v));
+        .map_or(quote!('__deku_input), |v| quote!(#v));
 
     let DekuDataStruct {
         imp,
@@ -108,7 +108,7 @@ fn emit_struct(input: &DekuData) -> Result<TokenStream, syn::Error> {
     };
 
     tokens.extend(quote! {
-        impl #imp ::#crate_::DekuRead<#lifetime, #ctx_types> for #ident #wher {
+        impl<#lifetime> #imp ::#crate_::DekuRead<#lifetime, #ctx_types> for #ident #wher {
             fn read(__deku_input_bits: &#lifetime ::#crate_::bitvec::BitSlice<u8, ::#crate_::bitvec::Msb0>, #ctx_arg) -> Result<(&#lifetime ::#crate_::bitvec::BitSlice<u8, ::#crate_::bitvec::Msb0>, Self), ::#crate_::DekuError> {
                 #read_body
             }
@@ -119,7 +119,7 @@ fn emit_struct(input: &DekuData) -> Result<TokenStream, syn::Error> {
         let read_body = wrap_default_ctx(read_body, &input.ctx, &input.ctx_default);
 
         tokens.extend(quote! {
-            impl #imp ::#crate_::DekuRead<#lifetime> for #ident #wher {
+            impl<#lifetime> #imp ::#crate_::DekuRead<#lifetime> for #ident #wher {
                 fn read(__deku_input_bits: &#lifetime ::#crate_::bitvec::BitSlice<u8, ::#crate_::bitvec::Msb0>, _: ()) -> Result<(&#lifetime ::#crate_::bitvec::BitSlice<u8, ::#crate_::bitvec::Msb0>, Self), ::#crate_::DekuError> {
                     #read_body
                 }
@@ -149,7 +149,7 @@ fn emit_enum(input: &DekuData) -> Result<TokenStream, syn::Error> {
         .generics
         .lifetimes()
         .next()
-        .map_or(quote!('_), |v| quote!(#v));
+        .map_or(quote!('__deku_input), |v| quote!(#v));
 
     let ident_as_string = ident.to_string();
 
@@ -337,7 +337,7 @@ fn emit_enum(input: &DekuData) -> Result<TokenStream, syn::Error> {
 
     tokens.extend(quote! {
         #[allow(non_snake_case)]
-        impl #imp ::#crate_::DekuRead<#lifetime, #ctx_types> for #ident #wher {
+        impl<#lifetime> #imp ::#crate_::DekuRead<#lifetime, #ctx_types> for #ident #wher {
             fn read(__deku_input_bits: &#lifetime ::#crate_::bitvec::BitSlice<u8, ::#crate_::bitvec::Msb0>, #ctx_arg) -> Result<(&#lifetime ::#crate_::bitvec::BitSlice<u8, ::#crate_::bitvec::Msb0>, Self), ::#crate_::DekuError> {
                 #read_body
             }
@@ -349,7 +349,7 @@ fn emit_enum(input: &DekuData) -> Result<TokenStream, syn::Error> {
 
         tokens.extend(quote! {
             #[allow(non_snake_case)]
-            impl #imp ::#crate_::DekuRead<#lifetime> for #ident #wher {
+            impl<#lifetime> #imp ::#crate_::DekuRead<#lifetime> for #ident #wher {
                 fn read(__deku_input_bits: &#lifetime ::#crate_::bitvec::BitSlice<u8, ::#crate_::bitvec::Msb0>, _: ()) -> Result<(&#lifetime ::#crate_::bitvec::BitSlice<u8, ::#crate_::bitvec::Msb0>, Self), ::#crate_::DekuError> {
                     #read_body
                 }
@@ -370,7 +370,7 @@ fn emit_enum(input: &DekuData) -> Result<TokenStream, syn::Error> {
     // Implement `DekuEnumExt`
     if let Some(deku_id_type) = deku_id_type {
         tokens.extend(quote! {
-            impl #imp DekuEnumExt<#lifetime, (#deku_id_type)> for #ident #wher {
+            impl<#lifetime> #imp DekuEnumExt<#lifetime, (#deku_id_type)> for #ident #wher {
                 fn deku_id(&self) -> Result<(#deku_id_type), DekuError> {
                     match self {
                         #(#deku_ids ,)*
@@ -708,7 +708,7 @@ pub fn emit_from_bytes(
 ) -> TokenStream {
     let crate_ = super::get_crate_name();
     quote! {
-        impl #imp ::#crate_::DekuContainerRead<#lifetime> for #ident #wher {
+        impl<#lifetime> #imp ::#crate_::DekuContainerRead<#lifetime> for #ident #wher {
             #[allow(non_snake_case)]
             fn from_bytes(__deku_input: (&#lifetime [u8], usize)) -> Result<((&#lifetime [u8], usize), Self), ::#crate_::DekuError> {
                 #body
@@ -726,7 +726,7 @@ pub fn emit_try_from(
 ) -> TokenStream {
     let crate_ = super::get_crate_name();
     quote! {
-        impl #imp core::convert::TryFrom<&#lifetime [u8]> for #ident #wher {
+        impl<#lifetime> #imp core::convert::TryFrom<&#lifetime [u8]> for #ident #wher {
             type Error = ::#crate_::DekuError;
 
             fn try_from(input: &#lifetime [u8]) -> Result<Self, Self::Error> {

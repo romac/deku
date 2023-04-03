@@ -302,8 +302,8 @@ fn gen_endian_from_str(s: &syn::LitStr) -> syn::Result<TokenStream> {
 /// `ctx_default` is provided
 fn wrap_default_ctx(
     body: TokenStream,
-    ctx: &Option<syn::punctuated::Punctuated<syn::FnArg, syn::token::Comma>>,
-    ctx_default: &Option<Punctuated<syn::Expr, syn::token::Comma>>,
+    ctx: Option<&syn::punctuated::Punctuated<syn::FnArg, syn::token::Comma>>,
+    ctx_default: Option<&Punctuated<syn::Expr, syn::token::Comma>>,
 ) -> TokenStream {
     if let (Some(ctx), Some(ctx_default)) = (ctx, ctx_default) {
         // wrap in a function to make `ctx` variables in scope

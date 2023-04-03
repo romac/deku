@@ -43,8 +43,11 @@ fn emit_struct(input: &DekuData) -> Result<TokenStream, syn::Error> {
 
     let destructured = gen_struct_destruction(named, &input.ident, field_idents);
 
+    let ctx = input.ctx.as_ref();
+    let ctx_default = input.ctx_default.as_ref();
+
     // Implement `DekuContainerWrite` for types that don't need a context
-    if input.ctx.is_none() || (input.ctx.is_some() && input.ctx_default.is_some()) {
+    if ctx.is_none() || (ctx.is_some() && ctx_default.is_some()) {
         let to_bits_body = wrap_default_ctx(
             quote! {
                 match *self {
@@ -59,8 +62,8 @@ fn emit_struct(input: &DekuData) -> Result<TokenStream, syn::Error> {
                     }
                 }
             },
-            &input.ctx,
-            &input.ctx_default,
+            ctx,
+            ctx_default,
         );
 
         tokens.extend(quote! {
@@ -128,8 +131,8 @@ fn emit_struct(input: &DekuData) -> Result<TokenStream, syn::Error> {
         }
     });
 
-    if input.ctx.is_some() && input.ctx_default.is_some() {
-        let write_body = wrap_default_ctx(write_body, &input.ctx, &input.ctx_default);
+    if ctx.is_some() && ctx_default.is_some() {
+        let write_body = wrap_default_ctx(write_body, ctx, ctx_default);
 
         tokens.extend(quote! {
             impl #imp DekuWrite for #ident #wher {
@@ -256,8 +259,11 @@ fn emit_enum(input: &DekuData) -> Result<TokenStream, syn::Error> {
         });
     }
 
+    let ctx = input.ctx.as_ref();
+    let ctx_default = input.ctx_default.as_ref();
+
     // Implement `DekuContainerWrite` for types that don't need a context
-    if input.ctx.is_none() || (input.ctx.is_some() && input.ctx_default.is_some()) {
+    if ctx.is_none() || (ctx.is_some() && ctx_default.is_some()) {
         let to_bits_body = wrap_default_ctx(
             quote! {
                 let mut __deku_acc: ::#crate_::bitvec::BitVec<u8, ::#crate_::bitvec::Msb0> = ::#crate_::bitvec::BitVec::new();
@@ -271,8 +277,8 @@ fn emit_enum(input: &DekuData) -> Result<TokenStream, syn::Error> {
 
                 Ok(__deku_acc)
             },
-            &input.ctx,
-            &input.ctx_default,
+            ctx,
+            ctx_default,
         );
 
         tokens.extend(quote! {
@@ -342,8 +348,8 @@ fn emit_enum(input: &DekuData) -> Result<TokenStream, syn::Error> {
         }
     });
 
-    if input.ctx.is_some() && input.ctx_default.is_some() {
-        let write_body = wrap_default_ctx(write_body, &input.ctx, &input.ctx_default);
+    if ctx.is_some() && ctx_default.is_some() {
+        let write_body = wrap_default_ctx(write_body, ctx, ctx_default);
 
         tokens.extend(quote! {
             impl #imp DekuWrite for #ident #wher {

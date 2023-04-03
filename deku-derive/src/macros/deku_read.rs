@@ -57,8 +57,11 @@ fn emit_struct(input: &DekuData) -> Result<TokenStream, syn::Error> {
 
     let initialize_struct = super::gen_struct_init(is_named_struct, internal_fields);
 
+    let ctx = input.read_ctx.as_ref().or(input.ctx.as_ref());
+    let ctx_default = input.ctx_default.as_ref();
+
     // Implement `DekuContainerRead` for types that don't need a context
-    if input.ctx.is_none() || (input.ctx.is_some() && input.ctx_default.is_some()) {
+    if ctx.is_none() || (ctx.is_some() && ctx_default.is_some()) {
         let from_bytes_body = wrap_default_ctx(
             quote! {
                 use core::convert::TryFrom;
@@ -78,8 +81,8 @@ fn emit_struct(input: &DekuData) -> Result<TokenStream, syn::Error> {
 
                 Ok(((__deku_input_bits[__deku_read_idx..].domain().region().unwrap().1, __deku_pad), __deku_value))
             },
-            &input.ctx,
-            &input.ctx_default,
+            ctx,
+            ctx_default,
         );
 
         tokens.extend(emit_try_from(&imp, &lifetime, &ident, wher));
@@ -93,7 +96,7 @@ fn emit_struct(input: &DekuData) -> Result<TokenStream, syn::Error> {
         ));
     }
 
-    let (ctx_types, ctx_arg) = gen_ctx_types_and_arg(input.ctx.as_ref())?;
+    let (ctx_types, ctx_arg) = gen_ctx_types_and_arg(ctx)?;
 
     let read_body = quote! {
         use core::convert::TryFrom;
@@ -115,8 +118,8 @@ fn emit_struct(input: &DekuData) -> Result<TokenStream, syn::Error> {
         }
     });
 
-    if input.ctx.is_some() && input.ctx_default.is_some() {
-        let read_body = wrap_default_ctx(read_body, &input.ctx, &input.ctx_default);
+    if ctx.is_some() && ctx_default.is_some() {
+        let read_body = wrap_default_ctx(read_body, ctx, ctx_default);
 
         tokens.extend(quote! {
             impl<#lifetime> #imp ::#crate_::DekuRead<#lifetime> for #ident #wher {
@@ -288,8 +291,11 @@ fn emit_enum(input: &DekuData) -> Result<TokenStream, syn::Error> {
         };
     };
 
+    let ctx = input.read_ctx.as_ref().or(input.ctx.as_ref());
+    let ctx_default = input.ctx_default.as_ref();
+
     // Implement `DekuContainerRead` for types that don't need a context
-    if input.ctx.is_none() || (input.ctx.is_some() && input.ctx_default.is_some()) {
+    if ctx.is_none() || (ctx.is_some() && ctx_default.is_some()) {
         let from_bytes_body = wrap_default_ctx(
             quote! {
                 use core::convert::TryFrom;
@@ -308,8 +314,8 @@ fn emit_enum(input: &DekuData) -> Result<TokenStream, syn::Error> {
 
                 Ok(((__deku_input_bits[__deku_read_idx..].domain().region().unwrap().1, __deku_pad), __deku_value))
             },
-            &input.ctx,
-            &input.ctx_default,
+            ctx,
+            ctx_default,
         );
 
         tokens.extend(emit_try_from(&imp, &lifetime, &ident, wher));
@@ -322,7 +328,7 @@ fn emit_enum(input: &DekuData) -> Result<TokenStream, syn::Error> {
             from_bytes_body,
         ));
     }
-    let (ctx_types, ctx_arg) = gen_ctx_types_and_arg(input.ctx.as_ref())?;
+    let (ctx_types, ctx_arg) = gen_ctx_types_and_arg(ctx)?;
 
     let read_body = quote! {
         use core::convert::TryFrom;
@@ -344,8 +350,8 @@ fn emit_enum(input: &DekuData) -> Result<TokenStream, syn::Error> {
         }
     });
 
-    if input.ctx.is_some() && input.ctx_default.is_some() {
-        let read_body = wrap_default_ctx(read_body, &input.ctx, &input.ctx_default);
+    if ctx.is_some() && ctx_default.is_some() {
+        let read_body = wrap_default_ctx(read_body, ctx, ctx_default);
 
         tokens.extend(quote! {
             #[allow(non_snake_case)]
@@ -359,7 +365,7 @@ fn emit_enum(input: &DekuData) -> Result<TokenStream, syn::Error> {
 
     let deku_id_type = if let Some(id_type) = id_type {
         Some(quote! {#id_type})
-    } else if let (Some(ctx), Some(id)) = (input.ctx.as_ref(), input.id.as_ref()) {
+    } else if let (Some(ctx), Some(id)) = (ctx.as_ref(), input.id.as_ref()) {
         Some(gen_type_from_ctx_id(ctx, id).ok_or_else(|| {
             syn::Error::new(id.span(), "DekuRead: cannot determine `id` type from `ctx`")
         })?)
@@ -505,7 +511,7 @@ fn emit_field_read(
         &f.default,
         &f.map,
         &f.reader,
-        &f.ctx.as_ref().map(|v| quote!(#v)),
+        &f.read_ctx.as_ref().or(f.ctx.as_ref()).map(|v| quote!(#v)),
         &f.assert,
         &f.assert_eq,
     ];
@@ -572,7 +578,7 @@ fn emit_field_read(
             field_endian,
             f.bits.as_ref(),
             f.bytes.as_ref(),
-            f.ctx.as_ref(),
+            f.read_ctx.as_ref().or(f.ctx.as_ref()),
         )?;
 
         // The container limiting options are special, we need to generate `(limit, (other, ..))` for them.

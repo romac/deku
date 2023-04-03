@@ -114,6 +114,9 @@ struct DekuData {
     /// top-level context, argument list
     ctx: Option<syn::punctuated::Punctuated<syn::FnArg, syn::token::Comma>>,
 
+    /// top-level read context, argument list
+    read_ctx: Option<syn::punctuated::Punctuated<syn::FnArg, syn::token::Comma>>,
+
     /// default context passed to the field
     ctx_default: Option<Punctuated<syn::Expr, syn::token::Comma>>,
 
@@ -173,6 +176,7 @@ impl DekuData {
             data,
             endian: receiver.endian,
             ctx: receiver.ctx,
+            read_ctx: receiver.read_ctx,
             ctx_default: receiver.ctx_default,
             magic: receiver.magic,
             id: receiver.id,
@@ -187,6 +191,14 @@ impl DekuData {
     }
 
     fn validate(data: &DekuData) -> Result<(), TokenStream> {
+        // Validate that either `read_ctx` or `ctx` are used but not both
+        if data.read_ctx.is_some() && data.ctx.is_some() {
+            return Err(cerror(
+                data.read_ctx.span(),
+                "conflicting both `ctx` and `read_ctx` specified",
+            ));
+        }
+
         // Validate `ctx_default`
         if data.ctx_default.is_some() && data.ctx.is_none() {
             // FIXME: Use `Span::join` once out of nightly
@@ -388,6 +400,9 @@ struct FieldData {
     /// context passed to the field
     ctx: Option<Punctuated<syn::Expr, syn::token::Comma>>,
 
+    /// read context passed to the field
+    read_ctx: Option<Punctuated<syn::Expr, syn::token::Comma>>,
+
     /// map field when updating struct
     update: Option<TokenStream>,
 
@@ -439,6 +454,12 @@ impl FieldData {
             .transpose()
             .map_err(|e| e.to_compile_error())?;
 
+        let read_ctx = receiver
+            .read_ctx?
+            .map(|s| s.parse_with(Punctuated::parse_terminated))
+            .transpose()
+            .map_err(|e| e.to_compile_error())?;
+
         let data = Self {
             ident: receiver.ident,
             ty: receiver.ty,
@@ -451,6 +472,7 @@ impl FieldData {
             until: receiver.until?,
             map: receiver.map?,
             ctx,
+            read_ctx,
             update: receiver.update?,
             reader: receiver.reader?,
             writer: receiver.writer?,
@@ -475,6 +497,14 @@ impl FieldData {
     }
 
     fn validate(data: &FieldData) -> Result<(), TokenStream> {
+        // Validate that either `ctx` or `read_ctx` is used but not both
+        if data.read_ctx.is_some() && data.ctx.is_some() {
+            return Err(cerror(
+                data.read_ctx.span(),
+                "conflicting: both `ctx` and `read_ctx` specified on field",
+            ));
+        }
+
         // Validate either `read_bytes` or `read_bits` is specified
         if data.bits_read.is_some() && data.bytes_read.is_some() {
             return Err(cerror(
@@ -612,6 +642,10 @@ struct DekuReceiver {
     /// top-level context, argument list
     #[darling(default)]
     ctx: Option<syn::punctuated::Punctuated<syn::FnArg, syn::token::Comma>>,
+
+    /// top-level read context, argument list
+    #[darling(default)]
+    read_ctx: Option<syn::punctuated::Punctuated<syn::FnArg, syn::token::Comma>>,
 
     /// default context passed to the field
     #[darling(default)]
@@ -762,6 +796,13 @@ struct DekuFieldReceiver {
     //       https://github.com/TedDriggs/darling/pull/98
     #[darling(default = "default_res_opt", map = "map_option_litstr")]
     ctx: Result<Option<syn::LitStr>, ReplacementError>,
+
+    /// read context passed to the field.
+    /// A comma separated argument list.
+    // TODO: The type of it should be `Punctuated<Expr, Comma>`
+    //       https://github.com/TedDriggs/darling/pull/98
+    #[darling(default = "default_res_opt", map = "map_option_litstr")]
+    read_ctx: Result<Option<syn::LitStr>, ReplacementError>,
 
     /// map field when updating struct
     #[darling(default = "default_res_opt", map = "map_litstr_as_tokenstream")]
